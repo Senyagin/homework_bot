@@ -5,7 +5,6 @@ from http import HTTPStatus
 
 import requests
 import telegram
-from telegram import Bot
 from dotenv import load_dotenv
 
 
