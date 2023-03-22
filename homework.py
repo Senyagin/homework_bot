@@ -29,6 +29,7 @@ HOMEWORK_VERDICTS = {
 
 TOKEN_NAMES = [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]
 
+
 def check_tokens():
     """Проверка переменных окружения."""
     for token in TOKEN_NAMES:
@@ -65,11 +66,12 @@ def get_api_answer(timestamp):
         )
     except Exception as Error:
         raise Exception(f'Ошибка {Error}')
-    
+
     if homework_status.status_code != HTTPStatus.OK:
         logging.error('Ошбика при запросе к API')
         raise Exception('Ошбика при запросе к API')
     return homework_status.json()
+
 
 def check_response(response):
     """Проверка ответа API Яндекс.Практикум на корректность."""
@@ -79,7 +81,7 @@ def check_response(response):
         raise TypeError(
             'Ответ сервера не является словарем'
             f'должны получить dict, а получили {type(response)}'
-            )
+        )
     if 'current_date' not in response.keys():
         logging.error('Отсутсвует ключ current_date')
         raise KeyError('Отсутсвует ключ current_date')
@@ -88,7 +90,7 @@ def check_response(response):
         raise TypeError(
             'Данные не являются списком!'
             f'должны получить list, а получили {type(homeworks)}'
-            )
+        )
     return homeworks[0]
 
 
@@ -143,6 +145,7 @@ if __name__ == '__main__':
     logging.basicConfig(
         level=logging.DEBUG,
         handlers=[file_handler, stdout_handler],
-        format='%(asctime)s, %(levelname)s, %(message)s, %(funcName)s, %(lineno)d',
+        format='%(asctime)s, %(levelname)s, %(message)s '
+                '%(funcName)s, %(lineno)d',
     )
     main()
