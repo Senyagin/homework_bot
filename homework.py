@@ -146,6 +146,6 @@ if __name__ == '__main__':
         level=logging.DEBUG,
         handlers=[file_handler, stdout_handler],
         format='%(asctime)s, %(levelname)s, %(message)s '
-                '%(funcName)s, %(lineno)d',
+               '%(funcName)s, %(lineno)d',
     )
     main()
