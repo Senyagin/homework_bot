@@ -37,8 +37,7 @@ def check_tokens():
             logging.critical(
                 'Отсутсвует обязательная переменная окружения'
             )
-            return False
-    return True
+    return all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID))
 
 
 def send_message(bot, message):
@@ -74,10 +73,9 @@ def get_api_answer(timestamp):
 
 
 def check_response(response):
-    """Проверка ответа API Яндекс.Практикум на корректность."""
-    homeworks = response['homeworks']
+    """Проверка ответа API Яндекс.Практикум на корректность.""" 
     if not isinstance(response, dict):
-        logging.error('Отсутствует статус в homeworks')
+        logging.error('Ответ сервера не является словарем')
         raise TypeError(
             'Ответ сервера не является словарем'
             f'должны получить dict, а получили {type(response)}'
@@ -85,6 +83,10 @@ def check_response(response):
     if 'current_date' not in response.keys():
         logging.error('Отсутсвует ключ current_date')
         raise KeyError('Отсутсвует ключ current_date')
+    if 'homeworks' not in response.keys(): 
+        logging.error('Отсутствует ключ homeworks') 
+        raise KeyError('Отсутствует ключ homeworks') 
+    homeworks = response['homeworks']
     if not isinstance(homeworks, list):
         logging.error('Данные не являются списком!')
         raise TypeError(
@@ -112,6 +114,7 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
+        logging.critical('Отсутствие обязательных переменных окружения')
         raise SystemExit('Отсутствие обязательных переменных окружения')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
