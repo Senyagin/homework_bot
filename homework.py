@@ -2,6 +2,7 @@ import logging
 import os
 import time
 from http import HTTPStatus
+import sys
 
 import requests
 import telegram
@@ -26,34 +27,30 @@ HOMEWORK_VERDICTS = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    filename='homework.log',
-    filemode='w',
-    format='%(asctime)s, %(levelname)s, %(message)s'
-)
-logger = logging.getLogger(__name__)
-logger.addHandler(
-    logging.StreamHandler()
-)
-
+TOKEN_NAMES = [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]
 
 def check_tokens():
     """Проверка переменных окружения."""
-    return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
+    for token in TOKEN_NAMES:
+        if token is None:
+            logging.critical(
+                'Отсутсвует обязательная переменная окружения'
+            )
+            return False
+    return True
 
 
 def send_message(bot, message):
     """Отправление сообщения ботом."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
-        logger.debug(
+        logging.debug(
             f'Сообщение в чат отправлено: {message}'
         )
         return True
-    except telegram.TelegramError as telegram_error:
-        logger.error(
-            f'Сообщение в чат не отправлено: {telegram_error}'
+    except Exception as error:
+        logging.error(
+            f'Сообщение в чат не отправлено: {error}'
         )
 
 
@@ -66,45 +63,45 @@ def get_api_answer(timestamp):
             headers=HEADERS,
             params=params
         )
-        if homework_status.status_code != HTTPStatus.OK:
-            logger.error('Ошбика при запросе к API')
-            raise Exception('Ошбика при запросе к API')
-        return homework_status.json()
     except Exception as Error:
-        logger.error(f'Ошибка {Error} при запросе к API')
         raise Exception(f'Ошибка {Error}')
-
+    
+    if homework_status.status_code != HTTPStatus.OK:
+        logging.error('Ошбика при запросе к API')
+        raise Exception('Ошбика при запросе к API')
+    return homework_status.json()
 
 def check_response(response):
     """Проверка ответа API Яндекс.Практикум на корректность."""
-    if type(response) is not dict:
-        logger.error('Отсутствует статус в homeworks')
-        raise TypeError('Ответ сервера не является словарем')
-    if 'homeworks' not in response.keys():
-        logger.error('Отсутствует ключ homeworks')
-        raise KeyError('Отсутствует ключ homeworks')
+    homeworks = response['homeworks']
+    if not isinstance(response, dict):
+        logging.error('Отсутствует статус в homeworks')
+        raise TypeError(
+            'Ответ сервера не является словарем'
+            f'должны получить dict, а получили {type(response)}'
+            )
     if 'current_date' not in response.keys():
-        logger.error('Отсутсвует ключ current_date')
+        logging.error('Отсутсвует ключ current_date')
         raise KeyError('Отсутсвует ключ current_date')
-    if type(response['homeworks']) is not list:
-        logger.error('Данные не являются списком!')
-        raise TypeError('Данные не являются списком!')
-    return response['homeworks'][0]
+    if not isinstance(homeworks, list):
+        logging.error('Данные не являются списком!')
+        raise TypeError(
+            'Данные не являются списком!'
+            f'должны получить list, а получили {type(homeworks)}'
+            )
+    return homeworks[0]
 
 
 def parse_status(homework):
     """Получение статуса домашней работы."""
-    if not isinstance(homework, dict):
-        logger.error('Данные не являются списком!')
-        raise KeyError('Данные не являются списком!')
-    homework_name = homework.get('homework_name')
-    homework_status = homework.get('status')
-    if homework_name is None:
-        raise Exception(f'homework_name отсутствует {homework_name}')
-    if homework_status is None:
-        raise Exception(f'homework_status отсутствует {homework_status}')
+    if 'homework_name' not in homework:
+        raise KeyError('Отсутсвует ключ homework_name')
+    homework_name = homework['homework_name']
+    if 'status' not in homework:
+        raise KeyError('Отсутсвует ключ status')
+    homework_status = homework['status']
     if homework_status not in HOMEWORK_VERDICTS:
-        logger.error('Отсутсвуют ожидаемые ключи')
+        logging.error('Отсутсвуют ожидаемые ключи')
         raise KeyError('Отсутсвуют ожидаемые ключи')
     verdict = HOMEWORK_VERDICTS[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
@@ -113,24 +110,26 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
-        logger.critical('Отсутствие обязательных переменных окружения')
         raise SystemExit('Отсутствие обязательных переменных окружения')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    timestamp = int(time.time())
+    timestamp = 0
     last_message = ''
     pre_message = None
     while True:
         try:
             response = get_api_answer(timestamp)
+            if response is None:
+                logging.error('Не удалось получить ответа от API')
+                send_message(bot, 'Не удалось получить ответа от API')
             check = check_response(response)
             message = parse_status(check)
             if last_message != message:
                 last_message = message
                 send_message(bot, last_message)
-                time.sleep(RETRY_PERIOD)
+                timestamp = int(time.time())
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            logger.error(message)
+            logging.error(message)
             if message != pre_message and send_message(
                     bot, message):
                 pre_message = message
@@ -139,4 +138,11 @@ def main():
 
 
 if __name__ == '__main__':
+    file_handler = logging.FileHandler(filename='homework.log')
+    stdout_handler = logging.StreamHandler(stream=sys.stdout)
+    logging.basicConfig(
+        level=logging.DEBUG,
+        handlers=[file_handler, stdout_handler],
+        format='%(asctime)s, %(levelname)s, %(message)s, %(funcName)s, %(lineno)d',
+    )
     main()
