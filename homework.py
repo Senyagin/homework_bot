@@ -73,7 +73,7 @@ def get_api_answer(timestamp):
 
 
 def check_response(response):
-    """Проверка ответа API Яндекс.Практикум на корректность.""" 
+    """Проверка ответа API Яндекс.Практикум на корректность."""
     if not isinstance(response, dict):
         logging.error('Ответ сервера не является словарем')
         raise TypeError(
@@ -83,9 +83,9 @@ def check_response(response):
     if 'current_date' not in response.keys():
         logging.error('Отсутсвует ключ current_date')
         raise KeyError('Отсутсвует ключ current_date')
-    if 'homeworks' not in response.keys(): 
-        logging.error('Отсутствует ключ homeworks') 
-        raise KeyError('Отсутствует ключ homeworks') 
+    if 'homeworks' not in response:
+        logging.error('Отсутствует ключ homeworks')
+        raise KeyError('Отсутствует ключ homeworks')
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
         logging.error('Данные не являются списком!')
