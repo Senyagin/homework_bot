@@ -35,13 +35,14 @@ def check_tokens():
         'TELEGRAM_TOKEN': TELEGRAM_TOKEN,
         'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID
     }
+    available = True
     for key, value in TOKEN_NAMES.items():
         if not value:
+            available = False
             logging.critical(
                 (f'Отсутсвует обязательная переменная окружения {key}')
             )
-            return False
-    return True
+    return available
 
 
 def send_message(bot, message):
@@ -68,7 +69,10 @@ def get_api_answer(timestamp):
             params=params
         )
     except requests.exceptions.RequestException as error:
-        raise Exception(f'Произошла ошибка соединения {error}')
+        raise ConnectionError(
+            f'Произошла ошибка соединения {error}'
+            f'Детали запроса {HEADERS}, {params}'
+        )
     if homework_status.status_code != HTTPStatus.OK:
         raise requests.HTTPError(
             f'Сбой в работе программы: Эндпоинт {ENDPOINT} '
