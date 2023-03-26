@@ -27,18 +27,19 @@ HOMEWORK_VERDICTS = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
-TOKEN_NAMES = [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]
-
-
 def check_tokens():
     """Проверка переменных окружения."""
-    for token in TOKEN_NAMES:
-        if token is None:
-            logging.critical(
-                'Отсутсвует обязательная переменная окружения'
-            )
-    return all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID))
-
+    TOKEN_NAMES = {
+        'PRACTICUM_TOKEN': PRACTICUM_TOKEN,
+        'TELEGRAM_TOKEN': TELEGRAM_TOKEN,
+        'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID
+    }
+    for key, value in TOKEN_NAMES.items():
+        if not value:
+            logging.critical((f'Отсутсвует обязательная переменная окружения {key}'))
+            return False
+    return True
+    
 
 def send_message(bot, message):
     """Отправление сообщения ботом."""
@@ -63,32 +64,27 @@ def get_api_answer(timestamp):
             headers=HEADERS,
             params=params
         )
-    except Exception as Error:
-        raise Exception(f'Ошибка {Error}')
-
+    except requests.exceptions.RequestException as error:
+        raise Exception(f'Произошла ошибка соединения {error}')
     if homework_status.status_code != HTTPStatus.OK:
-        logging.error('Ошбика при запросе к API')
-        raise Exception('Ошбика при запросе к API')
+        raise requests.HTTPError(f'Сбой в работе программы: Эндпоинт {ENDPOINT} '
+                     f'недоступен. Код ответа API: {homework_status.status_code}')
     return homework_status.json()
 
 
 def check_response(response):
     """Проверка ответа API Яндекс.Практикум на корректность."""
     if not isinstance(response, dict):
-        logging.error('Ответ сервера не является словарем')
         raise TypeError(
             'Ответ сервера не является словарем'
             f'должны получить dict, а получили {type(response)}'
         )
     if 'current_date' not in response.keys():
-        logging.error('Отсутсвует ключ current_date')
         raise KeyError('Отсутсвует ключ current_date')
     if 'homeworks' not in response:
-        logging.error('Отсутствует ключ homeworks')
         raise KeyError('Отсутствует ключ homeworks')
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
-        logging.error('Данные не являются списком!')
         raise TypeError(
             'Данные не являются списком!'
             f'должны получить list, а получили {type(homeworks)}'
@@ -105,7 +101,6 @@ def parse_status(homework):
         raise KeyError('Отсутсвует ключ status')
     homework_status = homework['status']
     if homework_status not in HOMEWORK_VERDICTS:
-        logging.error('Отсутсвуют ожидаемые ключи')
         raise KeyError('Отсутсвуют ожидаемые ключи')
     verdict = HOMEWORK_VERDICTS[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
@@ -114,14 +109,14 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
-        logging.critical('Отсутствие обязательных переменных окружения')
-        raise SystemExit('Отсутствие обязательных переменных окружения')
+        sys.exit(1)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
     last_message = ''
     pre_message = None
     while True:
         try:
+            logging.debug('Начало итерации, запрос к API')
             response = get_api_answer(timestamp)
             if response is None:
                 logging.error('Не удалось получить ответа от API')
@@ -138,7 +133,10 @@ def main():
             if message != pre_message and send_message(
                     bot, message):
                 pre_message = message
+        else:
+            logging.debug('Успешная итерация - нет исключений')
         finally:
+            logging.debug('Итерация завершена')
             time.sleep(RETRY_PERIOD)
 
 
