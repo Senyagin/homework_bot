@@ -27,6 +27,7 @@ HOMEWORK_VERDICTS = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
+
 def check_tokens():
     """Проверка переменных окружения."""
     TOKEN_NAMES = {
@@ -36,10 +37,12 @@ def check_tokens():
     }
     for key, value in TOKEN_NAMES.items():
         if not value:
-            logging.critical((f'Отсутсвует обязательная переменная окружения {key}'))
+            logging.critical(
+                (f'Отсутсвует обязательная переменная окружения {key}')
+            )
             return False
     return True
-    
+
 
 def send_message(bot, message):
     """Отправление сообщения ботом."""
@@ -67,8 +70,10 @@ def get_api_answer(timestamp):
     except requests.exceptions.RequestException as error:
         raise Exception(f'Произошла ошибка соединения {error}')
     if homework_status.status_code != HTTPStatus.OK:
-        raise requests.HTTPError(f'Сбой в работе программы: Эндпоинт {ENDPOINT} '
-                     f'недоступен. Код ответа API: {homework_status.status_code}')
+        raise requests.HTTPError(
+            f'Сбой в работе программы: Эндпоинт {ENDPOINT} '
+            f'Код ответа API: {homework_status.status_code}'
+        )
     return homework_status.json()
 
 
